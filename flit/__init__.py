@@ -172,9 +172,7 @@ def main(argv=None):
         sys.exit(0)
 
     def gen_setup_py():
-        if not (args.setup_py or args.no_setup_py):
-            return False
-        return args.setup_py
+        return args.setup_py if (args.setup_py or args.no_setup_py) else False
 
     if args.subcmd == 'build':
         from .build import main
