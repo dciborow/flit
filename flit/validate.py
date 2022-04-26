@@ -45,7 +45,7 @@ def get_cache_dir() -> Path:
 def _read_classifiers_cached():
     """Reads classifiers from cached file"""
     with (get_cache_dir() / 'classifiers.lst').open(encoding='utf-8') as f:
-        valid_classifiers = set(l.strip() for l in f)
+        valid_classifiers = {l.strip() for l in f}
     return valid_classifiers
 
 
@@ -77,8 +77,7 @@ def _download_and_cache_classifiers():
         if e.errno != errno.EROFS:
             raise
 
-    valid_classifiers = set(l.strip() for l in resp.text.splitlines())
-    return valid_classifiers
+    return {l.strip() for l in resp.text.splitlines()}
 
 
 def _verify_classifiers(classifiers, valid_classifiers):
@@ -175,10 +174,7 @@ def validate_name(metadata):
 
 
 def _valid_version_specifier(s):
-    for clause in s.split(','):
-        if not VERSION_SPEC.match(clause.strip()):
-            return False
-    return True
+    return all(VERSION_SPEC.match(clause.strip()) for clause in s.split(','))
 
 def validate_requires_python(metadata):
     spec = metadata.get('requires_python', None)
@@ -206,7 +202,7 @@ def validate_environment_marker(em):
         for var in (l.strip(), r.strip()):
             if var[:1] in {'"', "'"}:
                 if len(var) < 2 or var[-1:] != var[:1]:
-                    problems.append("Invalid string in environment marker: {}".format(var))
+                    problems.append(f"Invalid string in environment marker: {var}")
             elif var not in MARKER_VARS:
                 problems.append("Invalid variable name in environment marker: {!r}".format(var))
     return problems

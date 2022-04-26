@@ -48,16 +48,14 @@ def get_repositories(file="~/.pypirc"):
 
     names = cp.get('distutils', 'index-servers', fallback='pypi').split()
 
-    repos = {}
-
-    for name in names:
-        repos[name] = {
+    return {
+        name: {
             'url': cp.get(name, 'repository', fallback=PYPI),
             'username': cp.get(name, 'username', fallback=None),
             'password': cp.get(name, 'password', fallback=None),
         }
-
-    return repos
+        for name in names
+    }
 
 
 def get_repository(pypirc_path="~/.pypirc", name=None):
@@ -154,15 +152,14 @@ def get_password(repo, prefer_env):
         if stored_pw is not None:
             return stored_pw
 
-    if sys.stdin.isatty():
-        pw = None
-        while not pw:
-            print('Server  :', repo['url'])
-            print('Username:', repo['username'])
-            pw = getpass.getpass('Password: ')
-    else:
+    if not sys.stdin.isatty():
         raise Exception("Could not find password for upload.")
 
+    pw = None
+    while not pw:
+        print('Server  :', repo['url'])
+        print('Username:', repo['username'])
+        pw = getpass.getpass('Password: ')
     if keyring is not None:
         keyring.set_password(repo['url'], repo['username'], pw)
         log.info("Stored password with keyring")

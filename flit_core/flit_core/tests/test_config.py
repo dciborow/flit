@@ -42,7 +42,7 @@ def test_load_pep621_nodynamic():
     assert inf.metadata['name'] == 'module1'
     assert inf.metadata['version'] == '0.3'
     assert inf.metadata['summary'] == 'Statically specified description'
-    assert set(inf.dynamic_metadata) == set()
+    assert not set(inf.dynamic_metadata)
 
     # Filling reqs_by_extra when dependencies were specified but no optional
     # dependencies was a bug.
@@ -140,7 +140,7 @@ def test_bad_include_paths(path, err_match):
 ])
 def test_bad_pep621_info(proj_bad, err_match):
     proj = {'name': 'module1', 'version': '1.0', 'description': 'x'}
-    proj.update(proj_bad)
+    proj |= proj_bad
     with pytest.raises(config.ConfigError, match=err_match):
         config.read_pep621_metadata(proj, samples_dir / 'pep621')
 

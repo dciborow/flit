@@ -122,15 +122,19 @@ def prep_toml_config(d, path):
     unknown_sections = set(dtool) - {
         'metadata', 'module', 'scripts', 'entrypoints', 'sdist', 'external-data'
     }
-    unknown_sections = [s for s in unknown_sections if not s.lower().startswith('x-')]
-    if unknown_sections:
-        raise ConfigError('Unexpected tables in pyproject.toml: ' + ', '.join(
-            '[tool.flit.{}]'.format(s) for s in unknown_sections
-        ))
+    if unknown_sections := [
+        s for s in unknown_sections if not s.lower().startswith('x-')
+    ]:
+        raise ConfigError(
+            (
+                'Unexpected tables in pyproject.toml: '
+                + ', '.join(f'[tool.flit.{s}]' for s in unknown_sections)
+            )
+        )
+
 
     if 'sdist' in dtool:
-        unknown_keys = set(dtool['sdist']) - {'include', 'exclude'}
-        if unknown_keys:
+        if unknown_keys := set(dtool['sdist']) - {'include', 'exclude'}:
             raise ConfigError(
                 "Unknown keys in [tool.flit.sdist]:" + ", ".join(unknown_keys)
             )
@@ -151,7 +155,7 @@ def prep_toml_config(d, path):
         normp = osp.normpath(data_dir)
         if osp.isabs(normp):
             raise ConfigError(f"{toml_key} cannot be an absolute path")
-        if normp.startswith('..' + os.sep):
+        if normp.startswith(f'..{os.sep}'):
             raise ConfigError(
                 f"{toml_key} cannot point outside the directory containing pyproject.toml"
             )
@@ -185,8 +189,7 @@ def flatten_entrypoints(ep):
         d1 = {}
         for k, v in d.items():
             if isinstance(v, dict):
-                for flattened in _flatten(v, prefix+'.'+k):
-                    yield flattened
+                yield from _flatten(v, f'{prefix}.{k}')
             else:
                 d1[k] = v
 
@@ -202,7 +205,7 @@ def flatten_entrypoints(ep):
 def _check_glob_patterns(pats, clude):
     """Check and normalise glob patterns for sdist include/exclude"""
     if not isinstance(pats, list):
-        raise ConfigError("sdist {} patterns must be a list".format(clude))
+        raise ConfigError(f"sdist {clude} patterns must be a list")
 
     # Windows filenames can't contain these (nor * or ?, but they are part of
     # glob patterns) - https://stackoverflow.com/a/31976060/434217
@@ -228,7 +231,7 @@ def _check_glob_patterns(pats, clude):
             raise ConfigError(
                 '{} pattern {!r} is an absolute path'.format(clude, p)
             )
-        if normp.startswith('..' + os.sep):
+        if normp.startswith(f'..{os.sep}'):
             raise ConfigError(
                 '{} pattern {!r} points out of the directory containing pyproject.toml'
                 .format(clude, p)
@@ -274,9 +277,7 @@ def description_from_file(rel_path: str, proj_dir: Path, guess_mimetype=True):
             raw_desc = f.read()
     except IOError as e:
         if e.errno == errno.ENOENT:
-            raise ConfigError(
-                "Description file {} does not exist".format(desc_path)
-            )
+            raise ConfigError(f"Description file {desc_path} does not exist")
         raise
 
     if guess_mimetype:
@@ -309,7 +310,7 @@ def _prep_metadata(md_sect, path):
     res = LoadedConfig()
 
     res.module = md_sect.get('module')
-    if not all([m.isidentifier() for m in res.module.split(".")]):
+    if not all(m.isidentifier() for m in res.module.split(".")):
         raise ConfigError("Module name %r is not a valid identifier" % res.module)
 
     md_dict = res.metadata
@@ -324,8 +325,10 @@ def _prep_metadata(md_sect, path):
 
     if 'urls' in md_sect:
         project_urls = md_dict['project_urls'] = []
-        for label, url in sorted(md_sect.pop('urls').items()):
-            project_urls.append("{}, {}".format(label, url))
+        project_urls.extend(
+            f"{label}, {url}"
+            for label, url in sorted(md_sect.pop('urls').items())
+        )
 
     for key, value in md_sect.items():
         if key in {'description-file', 'module'}:
@@ -345,8 +348,7 @@ def _prep_metadata(md_sect, path):
                 raise ConfigError('Expected a list for {} field, found {!r}'
                                     .format(key, value))
             if not all(isinstance(a, str) for a in value):
-                raise ConfigError('Expected a list of strings for {} field'
-                                    .format(key))
+                raise ConfigError(f'Expected a list of strings for {key} field')
         elif key == 'requires-extra':
             if not isinstance(value, dict):
                 raise ConfigError('Expected a dict for requires-extra field, found {!r}'
@@ -355,12 +357,10 @@ def _prep_metadata(md_sect, path):
                 raise ConfigError('Expected a dict of lists for requires-extra field')
             for e, reqs in value.items():
                 if not all(isinstance(a, str) for a in reqs):
-                    raise ConfigError('Expected a string list for requires-extra. (extra {})'
-                                        .format(e))
-        else:
-            if not isinstance(value, str):
-                raise ConfigError('Expected a string for {} field, found {!r}'
-                                    .format(key, value))
+                    raise ConfigError(f'Expected a string list for requires-extra. (extra {e})')
+        elif not isinstance(value, str):
+            raise ConfigError('Expected a string for {} field, found {!r}'
+                                .format(key, value))
 
     # What we call requires in the ini file is technically requires_dist in
     # the metadata.
@@ -379,10 +379,9 @@ def _prep_metadata(md_sect, path):
         if 'dev' in res.reqs_by_extra:
             raise ConfigError(
                 'dev-requires occurs together with its replacement requires-extra.dev.')
-        else:
-            log.warning(
-                '"dev-requires = ..." is obsolete. Use "requires-extra = {"dev" = ...}" instead.')
-            res.reqs_by_extra['dev'] = dev_requires
+        log.warning(
+            '"dev-requires = ..." is obsolete. Use "requires-extra = {"dev" = ...}" instead.')
+        res.reqs_by_extra['dev'] = dev_requires
 
     # Add requires-extra requirements into requires_dist
     md_dict['requires_dist'] = \
@@ -400,24 +399,22 @@ def _expand_requires_extra(re):
         for req in reqs:
             if ';' in req:
                 name, envmark = req.split(';', 1)
-                yield '{} ; extra == "{}" and ({})'.format(name, extra, envmark)
+                yield f'{name} ; extra == "{extra}" and ({envmark})'
             else:
-                yield '{} ; extra == "{}"'.format(req, extra)
+                yield f'{req} ; extra == "{extra}"'
 
 
 def _check_type(d, field_name, cls):
     if not isinstance(d[field_name], cls):
         raise ConfigError(
-            "{} field should be {}, not {}".format(field_name, cls, type(d[field_name]))
+            f"{field_name} field should be {cls}, not {type(d[field_name])}"
         )
 
 def _check_list_of_str(d, field_name):
     if not isinstance(d[field_name], list) or not all(
         isinstance(e, str) for e in d[field_name]
     ):
-        raise ConfigError(
-            "{} field should be a list of strings".format(field_name)
-        )
+        raise ConfigError(f"{field_name} field should be a list of strings")
 
 def read_pep621_metadata(proj, path) -> LoadedConfig:
     lc = LoadedConfig()
@@ -428,8 +425,7 @@ def read_pep621_metadata(proj, path) -> LoadedConfig:
     _check_type(proj, 'name', str)
     lc.module = md_dict['name'] = proj['name']
 
-    unexpected_keys = proj.keys() - pep621_allowed_fields
-    if unexpected_keys:
+    if unexpected_keys := proj.keys() - pep621_allowed_fields:
         log.warning("Unexpected names under [project]: %s", ', '.join(unexpected_keys))
 
     if 'version' in proj:
@@ -445,22 +441,21 @@ def read_pep621_metadata(proj, path) -> LoadedConfig:
             desc_content, mimetype = description_from_file(readme, path.parent)
 
         elif isinstance(readme, dict):
-            unrec_keys = set(readme.keys()) - {'text', 'file', 'content-type'}
-            if unrec_keys:
-                raise ConfigError(
-                    "Unrecognised keys in [project.readme]: {}".format(unrec_keys)
-                )
-            if 'content-type' in readme:
-                mimetype = readme['content-type']
-                mtype_base = mimetype.split(';')[0].strip()  # e.g. text/x-rst
-                if mtype_base not in readme_ext_to_content_type.values():
-                    raise ConfigError(
-                        "Unrecognised readme content-type: {!r}".format(mtype_base)
-                    )
-                # TODO: validate content-type parameters (charset, md variant)?
-            else:
+            if unrec_keys := set(readme.keys()) - {
+                'text',
+                'file',
+                'content-type',
+            }:
+                raise ConfigError(f"Unrecognised keys in [project.readme]: {unrec_keys}")
+            if 'content-type' not in readme:
                 raise ConfigError(
                     "content-type field required in [project.readme] table"
+                )
+            mimetype = readme['content-type']
+            mtype_base = mimetype.split(';')[0].strip()  # e.g. text/x-rst
+            if mtype_base not in readme_ext_to_content_type.values():
+                raise ConfigError(
+                    "Unrecognised readme content-type: {!r}".format(mtype_base)
                 )
             if 'file' in readme:
                 if 'text' in readme:
@@ -491,11 +486,8 @@ def read_pep621_metadata(proj, path) -> LoadedConfig:
     if 'license' in proj:
         _check_type(proj, 'license', dict)
         license_tbl = proj['license']
-        unrec_keys = set(license_tbl.keys()) - {'text', 'file'}
-        if unrec_keys:
-            raise ConfigError(
-                "Unrecognised keys in [project.license]: {}".format(unrec_keys)
-            )
+        if unrec_keys := set(license_tbl.keys()) - {'text', 'file'}:
+            raise ConfigError(f"Unrecognised keys in [project.license]: {unrec_keys}")
 
         # TODO: Do something with license info.
         # The 'License' field in packaging metadata is a brief description of
@@ -507,9 +499,7 @@ def read_pep621_metadata(proj, path) -> LoadedConfig:
                     "[project.license] should specify file or text, not both"
                 )
             lc.referenced_files.append(license_tbl['file'])
-        elif 'text' in license_tbl:
-            pass
-        else:
+        elif 'text' not in license_tbl:
             raise ConfigError(
                 "file or text field required in [project.license] table"
             )
@@ -533,8 +523,9 @@ def read_pep621_metadata(proj, path) -> LoadedConfig:
     if 'urls' in proj:
         _check_type(proj, 'urls', dict)
         project_urls = md_dict['project_urls'] = []
-        for label, url in sorted(proj['urls'].items()):
-            project_urls.append("{}, {}".format(label, url))
+        project_urls.extend(
+            f"{label}, {url}" for label, url in sorted(proj['urls'].items())
+        )
 
     if 'entry-points' in proj:
         _check_type(proj, 'entry-points', dict)
@@ -585,9 +576,7 @@ def read_pep621_metadata(proj, path) -> LoadedConfig:
             )
         for e, reqs in optdeps.items():
             if not all(isinstance(a, str) for a in reqs):
-                raise ConfigError(
-                    'Expected a string list for optional-dependencies ({})'.format(e)
-                )
+                raise ConfigError(f'Expected a string list for optional-dependencies ({e})')
 
         lc.reqs_by_extra = optdeps.copy()
         md_dict['provides_extra'] = sorted(lc.reqs_by_extra.keys())
@@ -602,8 +591,7 @@ def read_pep621_metadata(proj, path) -> LoadedConfig:
     if 'dynamic' in proj:
         _check_list_of_str(proj, 'dynamic')
         dynamic = set(proj['dynamic'])
-        unrec_dynamic = dynamic - {'version', 'description'}
-        if unrec_dynamic:
+        if unrec_dynamic := dynamic - {'version', 'description'}:
             raise ConfigError(
                 "flit only supports dynamic metadata for 'version' & 'description'"
             )
@@ -629,12 +617,9 @@ def pep621_people(people, group_name='author') -> dict:
     names, emails = [], []
     for person in people:
         if not isinstance(person, dict):
-            raise ConfigError("{} info must be list of dicts".format(group_name))
-        unrec_keys = set(person.keys()) - {'name', 'email'}
-        if unrec_keys:
-            raise ConfigError(
-                "Unrecognised keys in {} info: {}".format(group_name, unrec_keys)
-            )
+            raise ConfigError(f"{group_name} info must be list of dicts")
+        if unrec_keys := set(person.keys()) - {'name', 'email'}:
+            raise ConfigError(f"Unrecognised keys in {group_name} info: {unrec_keys}")
         if 'email' in person:
             email = person['email']
             if 'name' in person:
@@ -647,5 +632,5 @@ def pep621_people(people, group_name='author') -> dict:
     if names:
         res[group_name] = ", ".join(names)
     if emails:
-        res[group_name + '_email'] = ", ".join(emails)
+        res[f'{group_name}_email'] = ", ".join(emails)
     return res

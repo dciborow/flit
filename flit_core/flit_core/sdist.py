@@ -103,7 +103,7 @@ class SdistBuilder:
         res = defaultdict(list)
         for groupname, group in self.entrypoints.items():
             for name, ep in sorted(group.items()):
-                res[groupname].append('{} = {}'.format(name, ep))
+                res[groupname].append(f'{name} = {ep}')
 
         return dict(res)
 
@@ -144,10 +144,11 @@ class SdistBuilder:
         crucial_files = set(
             self.extra_files + [str(self.module.file.relative_to(self.cfgdir))]
         )
-        missing_crucial = crucial_files - files
-        if missing_crucial:
-            raise Exception("Crucial files were excluded from the sdist: {}"
-                            .format(", ".join(missing_crucial)))
+        if missing_crucial := crucial_files - files:
+            raise Exception(
+                f'Crucial files were excluded from the sdist: {", ".join(missing_crucial)}'
+            )
+
 
         return sorted(files)
 
@@ -157,13 +158,11 @@ class SdistBuilder:
 
     @property
     def dir_name(self):
-        return '{}-{}'.format(self.metadata.name, self.metadata.version)
+        return f'{self.metadata.name}-{self.metadata.version}'
 
     def build(self, target_dir, gen_setup_py=True):
         os.makedirs(str(target_dir), exist_ok=True)
-        target = target_dir / '{}-{}.tar.gz'.format(
-                self.metadata.name, self.metadata.version
-        )
+        target = (target_dir / f'{self.metadata.name}-{self.metadata.version}.tar.gz')
         source_date_epoch = os.environ.get('SOURCE_DATE_EPOCH', '')
         mtime = int(source_date_epoch) if source_date_epoch else None
         gz = GzipFile(str(target), mode='wb', mtime=mtime)

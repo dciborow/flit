@@ -122,7 +122,4 @@ def render(raw, stream=None):
     else:
         rendered = parts.get("fragment")
 
-    if rendered:
-        return clean(rendered)
-    else:
-        return None
+    return clean(rendered) if rendered else None
