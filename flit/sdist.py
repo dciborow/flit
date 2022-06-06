@@ -96,9 +96,11 @@ def auto_packages(module: Module):
 
 
 def include_path(p):
-    return not (p.startswith('dist' + os.sep)
-                or (os.sep+'__pycache__' in p)
-                or p.endswith('.pyc'))
+    return not (
+        p.startswith(f'dist{os.sep}')
+        or f'{os.sep}__pycache__' in p
+        or p.endswith('.pyc')
+    )
 
 
 def _parse_req(requires_dist):
@@ -118,8 +120,8 @@ def _parse_req(requires_dist):
         name, version = name_version.split('(', 1)
         name = name.strip()
         version = version.replace(')', '').strip()
-        if not any(c in version for c in '=<>'):
-            version = '==' + version
+        if all(c not in version for c in '=<>'):
+            version = f'=={version}'
         name_version = name + version
 
     return name_version, env_mark
@@ -141,7 +143,7 @@ def convert_requires(reqs_by_extra):
         if env_mark is None:
             extra_reqs[extra] = reqs
         else:
-            extra_reqs[extra + ':' + env_mark] = reqs
+            extra_reqs[f'{extra}:{env_mark}'] = reqs
 
     return install_reqs, extra_reqs
 
@@ -191,10 +193,14 @@ class SdistBuilder(SdistBuilderCore):
         before, extra = [], []
         if self.module.is_package:
             packages, package_data = auto_packages(self.module)
-            before.append("packages = \\\n%s\n" % pformat(sorted(packages)))
-            before.append("package_data = \\\n%s\n" % pformat(package_data))
-            extra.append("packages=packages,")
-            extra.append("package_data=package_data,")
+            before.extend(
+                (
+                    "packages = \\\n%s\n" % pformat(sorted(packages)),
+                    "package_data = \\\n%s\n" % pformat(package_data),
+                )
+            )
+
+            extra.extend(("packages=packages,", "package_data=package_data,"))
         else:
             extra.append("py_modules={!r},".format([self.module.name]))
             if self.module.in_namespace_package:
@@ -215,8 +221,7 @@ class SdistBuilder(SdistBuilderCore):
             before.append("extras_require = \\\n%s\n" % pformat(extra_reqs))
             extra.append("extras_require=extras_require,")
 
-        entrypoints = self.prep_entry_points()
-        if entrypoints:
+        if entrypoints := self.prep_entry_points():
             before.append("entry_points = \\\n%s\n" % pformat(entrypoints))
             extra.append("entry_points=entry_points,")
 

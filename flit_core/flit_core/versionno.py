@@ -91,7 +91,7 @@ def normalise_version(orig_version):
 
     epoch, release = m.group('epoch', 'release')
     if epoch is not None:
-        add(str(int(epoch)) + '!')
+        add(f'{int(epoch)}!')
     add('.'.join(str(int(rp)) for rp in release.split('.')))
 
     pre_l, pre_n = m.group('pre_l', 'pre_n')
@@ -102,15 +102,15 @@ def normalise_version(orig_version):
 
     post_n1, post_l, post_n2 = m.group('post_n1', 'post_l', 'post_n2')
     if post_n1 is not None:
-        add('.post' + str(int(post_n1)))
+        add(f'.post{int(post_n1)}')
     elif post_l is not None:
         post_n = '0' if post_n2 is None else str(int(post_n2))
-        add('.post' + str(int(post_n)))
+        add(f'.post{int(post_n)}')
 
     dev_l, dev_n = m.group('dev_l', 'dev_n')
     if dev_l is not None:
         dev_n = '0' if dev_n is None else str(int(dev_n))
-        add('.dev' + dev_n)
+        add(f'.dev{dev_n}')
 
     local = m.group('local')
     if local is not None:

@@ -24,9 +24,9 @@ class Module(object):
         # It must exist either as a .py file or a directory, but not both
         name_as_path = name.replace('.', os.sep)
         pkg_dir = directory / name_as_path
-        py_file = directory / (name_as_path+'.py')
+        py_file = directory / f'{name_as_path}.py'
         src_pkg_dir = directory / 'src' / name_as_path
-        src_py_file = directory / 'src' / (name_as_path+'.py')
+        src_py_file = directory / 'src' / f'{name_as_path}.py'
 
         existing = set()
         if pkg_dir.is_dir():
@@ -52,11 +52,11 @@ class Module(object):
 
         if len(existing) > 1:
             raise ValueError(
-                "Multiple files or folders could be module {}: {}"
-                .format(name, ", ".join([str(p) for p in sorted(existing)]))
+                f'Multiple files or folders could be module {name}: {", ".join([str(p) for p in sorted(existing)])}'
             )
+
         elif not existing:
-            raise ValueError("No file/folder found for module {}".format(name))
+            raise ValueError(f"No file/folder found for module {name}")
 
         self.source_dir = directory / self.prefix
 
@@ -66,10 +66,7 @@ class Module(object):
 
     @property
     def file(self):
-        if self.is_package:
-            return self.path / '__init__.py'
-        else:
-            return self.path
+        return self.path / '__init__.py' if self.is_package else self.path
 
     def iter_files(self):
         """Iterate over the files contained in this module.
@@ -107,7 +104,7 @@ class VCSError(Exception):
         self.directory = directory
 
     def __str__(self):
-        return self.msg + ' ({})'.format(self.directory)
+        return self.msg + f' ({self.directory})'
 
 
 @contextmanager
@@ -209,9 +206,9 @@ def get_info_from_module(target, for_fields=('version', 'description')):
     if want_summary:
         if (not docstring) or not docstring.strip():
             raise NoDocstringError(
-                'Flit cannot package module without docstring, or empty docstring. '
-                'Please add a docstring to your module ({}).'.format(target.file)
+                f'Flit cannot package module without docstring, or empty docstring. Please add a docstring to your module ({target.file}).'
             )
+
         res['summary'] = docstring.lstrip().splitlines()[0]
 
     if want_version:
@@ -234,8 +231,7 @@ def check_version(version):
         raise NoVersionError('Cannot package module without a version string. '
                              'Please define a `__version__ = "x.y.z"` in your module.')
     if not isinstance(version, str):
-        raise InvalidVersion('__version__ must be a string, not {}.'
-                                .format(type(version)))
+        raise InvalidVersion(f'__version__ must be a string, not {type(version)}.')
 
     # Import here to avoid circular import
     version = normalise_version(version)
@@ -339,7 +335,7 @@ class Metadata(object):
         self.version = data.pop('version')
 
         for k, v in data.items():
-            assert hasattr(self, k), "data does not have attribute '{}'".format(k)
+            assert hasattr(self, k), f"data does not have attribute '{k}'"
             setattr(self, k, v)
 
     def _normalise_name(self, n):
@@ -397,16 +393,16 @@ class Metadata(object):
     @property
     def supports_py2(self):
         """Return True if Requires-Python indicates Python 2 support."""
-        for part in (self.requires_python or "").split(","):
-            if re.search(r"^\s*(>\s*(=\s*)?)?[3-9]", part):
-                return False
-        return True
+        return not any(
+            re.search(r"^\s*(>\s*(=\s*)?)?[3-9]", part)
+            for part in (self.requires_python or "").split(",")
+        )
 
 
 def make_metadata(module, ini_info):
     md_dict = {'name': module.name, 'provides': [module.name]}
-    md_dict.update(get_info_from_module(module, ini_info.dynamic_metadata))
-    md_dict.update(ini_info.metadata)
+    md_dict |= get_info_from_module(module, ini_info.dynamic_metadata)
+    md_dict |= ini_info.metadata
     return Metadata(md_dict)
 
 
@@ -422,12 +418,12 @@ def normalize_dist_name(name: str, version: str) -> str:
     normalized_name = re.sub(r'[-_.]+', '_', name, flags=re.UNICODE).lower()
     assert check_version(version) == version
     assert '-' not in version, 'Normalized versions can’t have dashes'
-    return '{}-{}'.format(normalized_name, version)
+    return f'{normalized_name}-{version}'
 
 
 def dist_info_name(distribution, version):
     """Get the correct name of the .dist-info folder"""
-    return normalize_dist_name(distribution, version) + '.dist-info'
+    return f'{normalize_dist_name(distribution, version)}.dist-info'
 
 
 def walk_data_dir(data_directory):
@@ -441,7 +437,5 @@ def walk_data_dir(data_directory):
 
     for dirpath, dirs, files in os.walk(data_directory):
         for file in sorted(files):
-            full_path = os.path.join(dirpath, file)
-            yield full_path
-
+            yield os.path.join(dirpath, file)
         dirs[:] = [d for d in sorted(dirs) if d != '__pycache__']

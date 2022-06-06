@@ -36,11 +36,9 @@ class InstallTests(TestCase):
 
     def _assert_direct_url(self, directory, package, version, expected_editable):
         direct_url_file = (
-            self.tmpdir
-            / 'site-packages'
-            / '{}-{}.dist-info'.format(package, version)
-            / 'direct_url.json'
-        )
+            self.tmpdir / 'site-packages' / f'{package}-{version}.dist-info'
+        ) / 'direct_url.json'
+
         assert_isfile(direct_url_file)
         with direct_url_file.open() as f:
             direct_url = json.load(f)
@@ -78,7 +76,7 @@ class InstallTests(TestCase):
         assert_isdir(self.tmpdir / 'site-packages' / 'package1-0.1.dist-info')
         assert_isfile(self.tmpdir / 'scripts' / 'pkg_script')
         with (self.tmpdir / 'scripts' / 'pkg_script').open() as f:
-            assert f.readline().strip() == "#!" + sys.executable
+            assert f.readline().strip() == f"#!{sys.executable}"
         self._assert_direct_url(
             samples_dir / 'package1', 'package1', '0.1', expected_editable=False
         )
@@ -149,7 +147,7 @@ class InstallTests(TestCase):
                       to=samples_dir / 'package1' / 'package1')
         assert_isfile(self.tmpdir / 'scripts' / 'pkg_script')
         with (self.tmpdir / 'scripts' / 'pkg_script').open() as f:
-            assert f.readline().strip() == "#!" + sys.executable
+            assert f.readline().strip() == f"#!{sys.executable}"
         self._assert_direct_url(
             samples_dir / 'package1', 'package1', '0.1', expected_editable=True
         )

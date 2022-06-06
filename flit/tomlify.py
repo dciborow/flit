@@ -37,11 +37,7 @@ def convert(path):
         else:
             metadata[name] = value
 
-    if 'scripts' in cp:
-        scripts = OrderedDict(cp['scripts'])
-    else:
-        scripts = {}
-
+    scripts = OrderedDict(cp['scripts']) if 'scripts' in cp else {}
     entrypoints = CaseSensitiveConfigParser()
     if ep_file.is_file():
         with ep_file.open(encoding='utf-8') as f:
@@ -60,7 +56,7 @@ def convert(path):
                 continue
 
             if '.' in groupname:
-                groupname = '"{}"'.format(groupname)
+                groupname = f'"{groupname}"'
             f.write('\n[tool.flit.entrypoints.{}]\n'.format(groupname))
             f.write(tomli_w.dumps(OrderedDict(group)))
             written_entrypoints = True
@@ -68,7 +64,7 @@ def convert(path):
     print("Written 'pyproject.toml'")
     files = str(path)
     if written_entrypoints:
-        files += ' and ' + str(ep_file)
+        files += f' and {str(ep_file)}'
     print("Please check the new file, then remove", files)
 
 def main(argv=None):

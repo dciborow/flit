@@ -25,10 +25,9 @@ def extract_wheel(whl_path, dest):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        'wheel',
-        type=Path,
-        help=f'flit_core wheel to install (.whl file)',
+        'wheel', type=Path, help='flit_core wheel to install (.whl file)'
     )
+
     purelib = Path(sysconfig.get_path('purelib')).resolve()
     parser.add_argument(
         '--installdir',

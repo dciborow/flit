@@ -37,8 +37,8 @@ def _requires_dist_to_pip_requirement(requires_dist):
         name, version = name_version.split('(', 1)
         name = name.strip()
         version = version.replace(')', '').strip()
-        if not any(c in version for c in '=<>'):
-            version = '==' + version
+        if all(c not in version for c in '=<>'):
+            version = f'=={version}'
         name_version = name + version
     # re-add environment marker
     return ' ;'.join([name_version, env_mark])
@@ -58,7 +58,7 @@ def _test_writable_dir_win(path):
     # and we can't use tempfile: http://bugs.python.org/issue22107
     basename = 'accesstest_deleteme_fishfingers_custard_'
     alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789'
-    for i in range(10):
+    for _ in range(10):
         name = basename + ''.join(random.choice(alphabet) for _ in range(6))
         file = osp.join(path, name)
         try:
@@ -111,10 +111,7 @@ class Installer(object):
                 (not os.environ.get('FLIT_ROOT_INSTALL'))):
             raise RootInstallError
 
-        if user is None:
-            self.user = self._auto_user(python)
-        else:
-            self.user = user
+        self.user = self._auto_user(python) if user is None else user
         log.debug('User install? %s', self.user)
 
         self.installed_files = []
@@ -132,10 +129,7 @@ class Installer(object):
         if not (code or file):
             raise ValueError('Specify code or file')
 
-        if code:
-            args = [self.python, '-c', code]
-        else:
-            args = [self.python, file]
+        args = [self.python, '-c', code] if code else [self.python, file]
         args.extend(extra_args)
         env = os.environ.copy()
         env['PYTHONIOENCODING'] = 'utf-8'
@@ -241,7 +235,7 @@ class Installer(object):
             requirements.extend(self.ini_info.reqs_by_extra.get(extra, []))
 
         # there aren't any requirements, so return
-        if len(requirements) == 0:
+        if not requirements:
             return
 
         requirements = [
@@ -285,11 +279,10 @@ class Installer(object):
     def _get_dirs(self, user):
         if self.python == sys.executable:
             return get_dirs(user=user)
-        else:
-            import json
-            path = osp.join(osp.dirname(__file__), '_get_dirs.py')
-            args = ['--user'] if user else []
-            return json.loads(self._run_python(file=path, extra_args=args))
+        import json
+        path = osp.join(osp.dirname(__file__), '_get_dirs.py')
+        args = ['--user'] if user else []
+        return json.loads(self._run_python(file=path, extra_args=args))
 
     def install_directly(self):
         """Install a module/package into site-packages, and create its scripts.
@@ -326,7 +319,7 @@ class Installer(object):
         elif self.pth:
             # .pth points to the the folder containing the module (which is
             # added to sys.path)
-            pth_file = pathlib.Path(dirs['purelib'], self.module.name + '.pth')
+            pth_file = pathlib.Path(dirs['purelib'], f'{self.module.name}.pth')
             log.info("Adding .pth file %s for %s", pth_file, self.module.source_dir)
             pth_file.write_text(str(self.module.source_dir.resolve()), 'utf-8')
             self.installed_files.append(pth_file)
@@ -359,8 +352,12 @@ class Installer(object):
         self.install_reqs_my_python_if_needed()
         extras = self._extras_to_install()
         extras.discard('.none')
-        req_with_extras = '{}[{}]'.format(self.directory, ','.join(extras)) \
-            if extras else str(self.directory)
+        req_with_extras = (
+            f"{self.directory}[{','.join(extras)}]"
+            if extras
+            else str(self.directory)
+        )
+
         cmd = [self.python, '-m', 'pip', 'install', req_with_extras]
         if self.user:
             cmd.append('--user')
@@ -415,7 +412,7 @@ class Installer(object):
                 if path.is_symlink() or path.suffix in {'.pyc', '.pyo'}:
                     hash, size = '', ''
                 else:
-                    hash = 'sha256=' + common.hash_file(str(path))
+                    hash = f'sha256={common.hash_file(str(path))}'
                     size = path.stat().st_size
                 try:
                     path = path.relative_to(site_pkgs)

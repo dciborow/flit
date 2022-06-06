@@ -10,14 +10,13 @@ def get_dirs(user=True):
     This is now a thin wrapper around sysconfig.get_paths(). It's not inlined,
     because some tests mock it out to install to a different location.
     """
-    if user:
-        if (sys.platform == "darwin") and sysconfig.get_config_var('PYTHONFRAMEWORK'):
-            return sysconfig.get_paths('osx_framework_user')
-        return sysconfig.get_paths(os.name + '_user')
-    else:
+    if not user:
         # The default scheme is 'posix_prefix' or 'nt', and should work for e.g.
         # installing into a virtualenv
         return sysconfig.get_paths()
+    if (sys.platform == "darwin") and sysconfig.get_config_var('PYTHONFRAMEWORK'):
+        return sysconfig.get_paths('osx_framework_user')
+    return sysconfig.get_paths(f'{os.name}_user')
 
 
 if __name__ == '__main__':
